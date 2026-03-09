@@ -299,7 +299,7 @@
         /* --- Special Gold Buttons for Fine Fragrances Sizes --- */
         .ff-btn {
             border-color: var(--brand-gold);
-            color: #a3855a; /* สีทองเข้มสำหรับตัวอักษรปกติ */
+            color: #a3855a;
         }
         .ff-btn:hover {
             border-color: var(--brand-gold);
@@ -646,6 +646,7 @@
         renderDataTable(filteredData);
     }
 
+    // ฟังก์ชันนี้แหละครับที่ขาดหายไป
     function renderDataTable(dataArray) {
         let dataTbody = document.querySelector('#dataTable tbody');
         dataTbody.innerHTML = '';
