@@ -14,9 +14,9 @@
             --brand-white: #ffffff;
             --brand-bg: #f8f9fa;
             --brand-border: #eaeaea;
-            --brand-gold: #c5a880; /* สีทอง Signature */
+            --brand-gold: #c5a880;
             --brand-hover: #f1f3f5;
-            --brand-red: #9e1b1e; /* สีแดง Signature */
+            --brand-red: #9e1b1e;
         }
 
         body {
@@ -68,7 +68,6 @@
 
         .upload-btn-wrapper {
             position: relative;
-            overflow: hidden;
             display: inline-block;
         }
         .upload-btn {
@@ -92,14 +91,6 @@
         .upload-btn:hover {
             background-color: var(--brand-white);
             color: var(--brand-red);
-        }
-        .upload-btn-wrapper input[type=file] {
-            font-size: 100px;
-            position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            cursor: pointer;
         }
 
         /* ---------------- Loader Animation ---------------- */
@@ -296,10 +287,10 @@
             box-shadow: 0 4px 10px rgba(158, 27, 30, 0.2);
         }
 
-        /* --- Special Gold Buttons for Fine Fragrances Sizes --- */
+        /* --- Special Gold Buttons for Fine Fragrances --- */
         .ff-btn {
             border-color: var(--brand-gold);
-            color: #a3855a; /* สีทองเข้มสำหรับตัวอักษรปกติ */
+            color: #a3855a;
         }
         .ff-btn:hover {
             border-color: var(--brand-gold);
@@ -337,7 +328,7 @@
     </div>
     
     <div class="upload-btn-wrapper">
-        <button class="upload-btn">
+        <button class="upload-btn" onclick="document.getElementById('fileUpload').click()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="17 8 12 3 7 8"></polyline>
@@ -345,7 +336,7 @@
             </svg>
             นำเข้าไฟล์ Excel
         </button>
-        <input type="file" id="fileUpload" accept=".xlsx, .xls" />
+        <input type="file" id="fileUpload" accept=".xlsx, .xls" style="display: none;" />
     </div>
 </div>
 
@@ -413,7 +404,7 @@
 
         <h3 style="margin-bottom: 5px;">ข้อมูลรายการขาย (Raw Data)</h3>
         <div class="filter-container" id="filterButtons">
-            </div>
+        </div>
 
         <div class="data-table-container">
             <table id="dataTable">
@@ -462,9 +453,13 @@
                 }, 5000);
 
             } catch (error) {
+                console.error(error);
                 alert('เกิดข้อผิดพลาดในการอ่านไฟล์ กรุณาลองใหม่อีกครั้ง');
                 loader.classList.remove('active');
             }
+            
+            // ล้างค่า input เพื่อให้สามารถอัปโหลดไฟล์เดิมซ้ำได้ถ้าต้องการ
+            e.target.value = '';
         };
         reader.readAsArrayBuffer(file);
     });
@@ -498,9 +493,8 @@
             }
 
             let totalSales = priceSale * quantity;
-            let ffSize = ''; // เก็บขนาดของน้ำหอมเพื่อใช้ Filter
+            let ffSize = ''; 
 
-            // สรุป Category
             let catName = category || 'ไม่ระบุ Category';
             if (!categorySummary[catName]) {
                 categorySummary[catName] = { totalQty: 0, totalSales: 0 };
@@ -508,7 +502,6 @@
             categorySummary[catName].totalQty += quantity;
             categorySummary[catName].totalSales += totalSales;
 
-            // สรุป Fine Fragrances พร้อมแนบ Size
             if (catName === 'Fine Fragrances') {
                 let skuParts = sku.split('_');
                 if (skuParts.length > 1) {
@@ -526,7 +519,6 @@
                 }
             }
 
-            // เก็บข้อมูลรวมถึง Size ไว้สำหรับ Filter
             globalExtractedData.push({
                 date, sku, variantName, priceSale, category, quantity, ffSize
             });
@@ -536,6 +528,9 @@
     }
 
     function renderDashboard(salesDate, salesBranch, categorySummary, fineFragrancesSummary) {
+        if (typeof categorySummary !== 'object' || categorySummary === null) categorySummary = {};
+        if (typeof fineFragrancesSummary !== 'object' || fineFragrancesSummary === null) fineFragrancesSummary = {};
+
         document.getElementById('salesDateValue').innerText = salesDate || 'ไม่พบข้อมูลวันที่';
         document.getElementById('salesBranchValue').innerText = salesBranch || 'ไม่ระบุสาขา';
 
@@ -546,22 +541,22 @@
         let categories = Object.keys(categorySummary).sort();
 
         categories.forEach(cat => {
-            let qty = categorySummary[cat].totalQty;
-            let sales = categorySummary[cat].totalSales;
+            let qty = (categorySummary[cat] && categorySummary[cat].totalQty) ? categorySummary[cat].totalQty : 0;
+            let sales = (categorySummary[cat] && categorySummary[cat].totalSales) ? categorySummary[cat].totalSales : 0;
             sumCatQty += qty;
             sumCatSales += sales;
 
             let tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${cat}</td>
-                <td class="number">${qty.toLocaleString('th-TH')}</td>
-                <td class="number">${sales.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                <td class="number">${Number(qty).toLocaleString('th-TH')}</td>
+                <td class="number">${Number(sales).toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
             `;
             catTbody.appendChild(tr);
         });
         
-        document.getElementById('catTotalQty').innerText = sumCatQty.toLocaleString('th-TH');
-        document.getElementById('catTotalSales').innerText = sumCatSales.toLocaleString('th-TH', {minimumFractionDigits: 2});
+        document.getElementById('catTotalQty').innerText = Number(sumCatQty).toLocaleString('th-TH');
+        document.getElementById('catTotalSales').innerText = Number(sumCatSales).toLocaleString('th-TH', {minimumFractionDigits: 2});
 
         let fragTbody = document.querySelector('#fragranceTable tbody');
         fragTbody.innerHTML = '';
@@ -569,16 +564,16 @@
         let sumFragQty = 0;
 
         sizes.forEach(size => {
-            let qty = fineFragrancesSummary[size];
+            let qty = fineFragrancesSummary[size] || 0;
             sumFragQty += qty;
             let tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${size}</td>
-                <td class="number">${qty.toLocaleString('th-TH')}</td>
+                <td class="number">${Number(qty).toLocaleString('th-TH')}</td>
             `;
             fragTbody.appendChild(tr);
         });
-        document.getElementById('fragTotalQty').innerText = sumFragQty.toLocaleString('th-TH');
+        document.getElementById('fragTotalQty').innerText = Number(sumFragQty).toLocaleString('th-TH');
 
         createFilterButtons(categories);
         renderDataTable(globalExtractedData);
@@ -588,14 +583,12 @@
         const filterContainer = document.getElementById('filterButtons');
         filterContainer.innerHTML = '';
 
-        // 1. ปุ่ม ALL
         const btnAll = document.createElement('button');
         btnAll.className = 'filter-btn active';
         btnAll.innerText = 'ALL CATEGORIES';
         btnAll.onclick = () => applyFilter('ALL', btnAll);
         filterContainer.appendChild(btnAll);
 
-        // 2. ปุ่ม Category ปกติ
         categories.forEach(cat => {
             const btn = document.createElement('button');
             btn.className = 'filter-btn';
@@ -604,18 +597,15 @@
             filterContainer.appendChild(btn);
         });
 
-        // ตรวจสอบว่ามีหมวด Fine Fragrances หรือไม่
         if (categories.includes('Fine Fragrances')) {
-            // เส้นคั่นเพื่อให้ดูแยกกลุ่ม
             const divider = document.createElement('div');
             divider.className = 'filter-divider';
             filterContainer.appendChild(divider);
 
-            // 3. ปุ่มพิเศษสำหรับ Fine Fragrances (สีทอง)
             const ffSizes = ['10 ML', '50 ML', 'SET'];
             ffSizes.forEach(size => {
                 const btn = document.createElement('button');
-                btn.className = 'filter-btn ff-btn'; // ใส่คลาส ff-btn สำหรับสีทอง
+                btn.className = 'filter-btn ff-btn';
                 btn.innerHTML = `<span style="font-weight:700;">FF:</span> ${size}`;
                 btn.onclick = () => applyFilter(`FF-${size}`, btn);
                 filterContainer.appendChild(btn);
@@ -631,11 +621,9 @@
 
         if (filterType !== 'ALL') {
             if (filterType.startsWith('FF-')) {
-                // Filter เฉพาะ Size ของ Fine Fragrances
                 let targetSize = filterType.replace('FF-', '');
                 filteredData = globalExtractedData.filter(item => item.ffSize === targetSize);
             } else {
-                // Filter ตาม Category ปกติ
                 filteredData = globalExtractedData.filter(item => {
                     let cat = item.category || 'ไม่ระบุ Category';
                     return cat === filterType;
@@ -651,13 +639,15 @@
         dataTbody.innerHTML = '';
         dataArray.forEach(item => {
             let tr = document.createElement('tr');
+            let price = Number(item.priceSale) || 0;
+            let qty = Number(item.quantity) || 0;
             tr.innerHTML = `
                 <td>${item.date}</td>
                 <td>${item.sku}</td>
                 <td>${item.variantName}</td>
-                <td class="number">${item.priceSale.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                <td class="number">${price.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
                 <td>${item.category}</td>
-                <td class="number">${item.quantity.toLocaleString('th-TH')}</td>
+                <td class="number">${qty.toLocaleString('th-TH')}</td>
             `;
             dataTbody.appendChild(tr);
         });
