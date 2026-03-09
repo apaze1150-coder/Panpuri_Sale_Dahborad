@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAÑPURI Sales Dashboard</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --brand-black: #1a1a1a;
+            --brand-white: #ffffff;
+            --brand-bg: #f8f9fa;
+            --brand-border: #eaeaea;
+            --brand-gold: #c5a880; /* สีทอง Signature */
+            --brand-hover: #f1f3f5;
+            --brand-red: #9e1b1e; /* สีแดง Signature */
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            background-color: var(--brand-bg);
+            color: var(--brand-black);
+            overflow-x: hidden;
+        }
+
+        h2, h3 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 600;
+            margin-top: 0;
+        }
+
+        /* ---------------- Navbar & Upload ---------------- */
+        .navbar {
+            background-color: var(--brand-white);
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--brand-border);
+            box-shadow: 0 2px 15px rgba(0,0,0,0.03);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo-section {
+            display: flex;
+            flex-direction: column;
+        }
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            margin: 0;
+            color: var(--brand-red);
+            text-transform: uppercase;
+        }
+        .subtitle {
+            font-size: 12px;
+            letter-spacing: 1.5px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .upload-btn {
+            background-color: var(--brand-red);
+            color: var(--brand-white);
+            border: 1px solid var(--brand-red);
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 10px rgba(158, 27, 30, 0.2);
+        }
+        .upload-btn:hover {
+            background-color: var(--brand-white);
+            color: var(--brand-red);
+        }
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* ---------------- Loader Animation ---------------- */
+        .loader-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        .loader-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--brand-border);
+            border-top-color: var(--brand-red);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 25px;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .loader-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 20px;
+            letter-spacing: 1.5px;
+            color: var(--brand-black);
+        }
+        .loader-subtext {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+            letter-spacing: 1px;
+        }
+
+        /* ---------------- Main Content ---------------- */
+        .container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 100px 20px;
+            color: #888;
+        }
+        .empty-state h2 { color: var(--brand-black); font-size: 28px; margin-bottom: 10px;}
+        .empty-state p { font-size: 15px; }
+
+        /* --- Info Cards Design (Date & Branch) --- */
+        .dashboard-header-info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        .info-card {
+            flex: 1;
+            min-width: 250px;
+            background: linear-gradient(135deg, var(--brand-black), #2c2c2c);
+            padding: 20px 25px;
+            border-radius: 8px;
+            border-left: 4px solid var(--brand-red);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .info-label {
+            color: #aaaaaa;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: var(--brand-gold);
+            font-size: 18px;
+            font-weight: 600;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        /* Dashboard Elements */
+        .summary-sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        @media (max-width: 900px) {
+            .summary-sections { grid-template-columns: 1fr; }
+        }
+
+        .summary-box {
+            background: var(--brand-white);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+            border: 1px solid var(--brand-border);
+            border-top: 4px solid var(--brand-red);
+            transition: transform 0.3s ease;
+        }
+        .summary-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(158, 27, 30, 0.08);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--brand-border);
+        }
+        th {
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1.5px;
+        }
+        td.number { text-align: right; font-weight: 500;}
+        th.number { text-align: right; }
+        tr:hover td { background-color: var(--brand-hover); }
+        
+        tfoot tr {
+            background-color: #fafafa;
+            border-top: 2px solid var(--brand-black);
+        }
+        tfoot td { font-weight: 700; color: var(--brand-red); }
+
+        .data-table-container {
+            background: var(--brand-white);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+            border: 1px solid var(--brand-border);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .data-table-container th {
+            position: sticky;
+            top: 0;
+            background-color: var(--brand-white);
+            z-index: 10;
+        }
+
+        /* Filter Buttons */
+        .filter-container {
+            margin: 20px 0 25px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        .filter-btn {
+            background: var(--brand-white);
+            border: 1px solid var(--brand-border);
+            color: #666;
+            padding: 10px 20px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 50px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        .filter-btn:hover {
+            border-color: var(--brand-red);
+            color: var(--brand-red);
+        }
+        .filter-btn.active {
+            background: var(--brand-red);
+            border-color: var(--brand-red);
+            color: var(--brand-white);
+            box-shadow: 0 4px 10px rgba(158, 27, 30, 0.2);
+        }
+
+        /* --- Special Gold Buttons for Fine Fragrances Sizes --- */
+        .ff-btn {
+            border-color: var(--brand-gold);
+            color: #a3855a; /* สีทองเข้มสำหรับตัวอักษรปกติ */
+        }
+        .ff-btn:hover {
+            border-color: var(--brand-gold);
+            background-color: #faf6f0;
+            color: var(--brand-gold);
+        }
+        .ff-btn.active {
+            background: var(--brand-gold);
+            border-color: var(--brand-gold);
+            color: var(--brand-white);
+            box-shadow: 0 4px 10px rgba(197, 168, 128, 0.3);
+        }
+        .filter-divider {
+            width: 1px;
+            height: 24px;
+            background-color: #ccc;
+            margin: 0 5px;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="loader-overlay" id="loaderOverlay">
+    <div class="spinner"></div>
+    <div class="loader-text">กำลังประมวลผลข้อมูล...</div>
+    <div class="loader-subtext">กรุณารอสักครู่ ระบบกำลังจัดเตรียมแดชบอร์ด</div>
+</div>
+
+<div class="navbar">
+    <div class="logo-section">
+        <h1 class="logo">PAÑPURI</h1>
+        <div class="subtitle">Daily Sales Dashboard</div>
+    </div>
+    
+    <div class="upload-btn-wrapper">
+        <button class="upload-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            นำเข้าไฟล์ Excel
+        </button>
+        <input type="file" id="fileUpload" accept=".xlsx, .xls" />
+    </div>
+</div>
+
+<div class="container">
+    
+    <div id="emptyState" class="empty-state">
+        <h2>ยินดีต้อนรับสู่ระบบสรุปยอดขาย</h2>
+        <p>กรุณากดปุ่ม "นำเข้าไฟล์ Excel" ที่มุมขวาบนเพื่อเริ่มต้นดูรายงาน</p>
+    </div>
+
+    <div id="dashboardContent" class="hidden">
+        
+        <div class="dashboard-header-info">
+            <div class="info-card">
+                <div class="info-label">ข้อมูลยอดขายประจำวันที่</div>
+                <div class="info-value" id="salesDateValue">กำลังโหลด...</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">สาขา (Branch)</div>
+                <div class="info-value" id="salesBranchValue">กำลังโหลด...</div>
+            </div>
+        </div>
+        
+        <div class="summary-sections">
+            <div class="summary-box">
+                <h3>สรุปยอดขายตาม Category</h3>
+                <table id="categoryTable">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th class="number">จำนวนรวม (ชิ้น)</th>
+                            <th class="number">ยอดขายรวม (บาท)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                    <tfoot>
+                        <tr>
+                            <td>TOTAL</td>
+                            <td class="number" id="catTotalQty">0</td>
+                            <td class="number" id="catTotalSales">0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="summary-box">
+                <h3>สรุปยอดขาย Fine Fragrances</h3>
+                <table id="fragranceTable">
+                    <thead>
+                        <tr>
+                            <th>ขนาด (Size)</th>
+                            <th class="number">จำนวนที่ขายได้ (ขวด/ชุด)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                    <tfoot>
+                        <tr>
+                            <td>TOTAL</td>
+                            <td class="number" id="fragTotalQty">0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: 5px;">ข้อมูลรายการขาย (Raw Data)</h3>
+        <div class="filter-container" id="filterButtons">
+            </div>
+
+        <div class="data-table-container">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>วันที่ (Date)</th>
+                        <th>SKU</th>
+                        <th>Variant Name</th>
+                        <th class="number">Price Sale</th>
+                        <th>Category</th>
+                        <th class="number">Quantity</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let globalExtractedData = [];
+
+    document.getElementById('fileUpload').addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+
+        const loader = document.getElementById('loaderOverlay');
+        loader.classList.add('active');
+        
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                var data = new Uint8Array(e.target.result);
+                var workbook = XLSX.read(data, {type: 'array'});
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+                var rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+
+                processData(rows);
+
+                setTimeout(() => {
+                    loader.classList.remove('active');
+                    document.getElementById('emptyState').classList.add('hidden');
+                    document.getElementById('dashboardContent').classList.remove('hidden');
+                }, 5000);
+
+            } catch (error) {
+                alert('เกิดข้อผิดพลาดในการอ่านไฟล์ กรุณาลองใหม่อีกครั้ง');
+                loader.classList.remove('active');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    function processData(rows) {
+        globalExtractedData = [];
+        let categorySummary = {};
+        let fineFragrancesSummary = { '10 ML': 0, '50 ML': 0, 'SET': 0 };
+        let salesDate = "";
+        let salesBranch = ""; 
+
+        for (let i = 3; i < rows.length; i++) {
+            let row = rows[i];
+            if (!row || row.length === 0) continue;
+
+            let date = row[1] ? String(row[1]).trim() : '';
+            let branch = row[2] ? String(row[2]).trim() : '';
+            let sku = row[11] ? String(row[11]).trim() : '';
+            let variantName = row[12] ? String(row[12]).trim() : '';
+            let priceSale = parseFloat(row[13]) || 0;
+            let category = row[14] ? String(row[14]).trim() : '';
+            let quantity = parseFloat(row[17]) || 0;
+
+            if (!date && !sku && !category) continue;
+
+            if (date && !salesDate) {
+                salesDate = date.split(' ')[0]; 
+            }
+            if (branch && !salesBranch) {
+                salesBranch = branch;
+            }
+
+            let totalSales = priceSale * quantity;
+            let ffSize = ''; // เก็บขนาดของน้ำหอมเพื่อใช้ Filter
+
+            // สรุป Category
+            let catName = category || 'ไม่ระบุ Category';
+            if (!categorySummary[catName]) {
+                categorySummary[catName] = { totalQty: 0, totalSales: 0 };
+            }
+            categorySummary[catName].totalQty += quantity;
+            categorySummary[catName].totalSales += totalSales;
+
+            // สรุป Fine Fragrances พร้อมแนบ Size
+            if (catName === 'Fine Fragrances') {
+                let skuParts = sku.split('_');
+                if (skuParts.length > 1) {
+                    let code = skuParts[1];
+                    if (code.startsWith('010')) {
+                        fineFragrancesSummary['10 ML'] += quantity;
+                        ffSize = '10 ML';
+                    } else if (code.startsWith('050')) {
+                        fineFragrancesSummary['50 ML'] += quantity;
+                        ffSize = '50 ML';
+                    } else if (code.startsWith('000')) {
+                        fineFragrancesSummary['SET'] += quantity;
+                        ffSize = 'SET';
+                    }
+                }
+            }
+
+            // เก็บข้อมูลรวมถึง Size ไว้สำหรับ Filter
+            globalExtractedData.push({
+                date, sku, variantName, priceSale, category, quantity, ffSize
+            });
+        }
+
+        renderDashboard(salesDate, salesBranch, categorySummary, fineFragrancesSummary);
+    }
+
+    function renderDashboard(salesDate, salesBranch, categorySummary, fineFragrancesSummary) {
+        document.getElementById('salesDateValue').innerText = salesDate || 'ไม่พบข้อมูลวันที่';
+        document.getElementById('salesBranchValue').innerText = salesBranch || 'ไม่ระบุสาขา';
+
+        let catTbody = document.querySelector('#categoryTable tbody');
+        catTbody.innerHTML = '';
+        let sumCatQty = 0;
+        let sumCatSales = 0;
+        let categories = Object.keys(categorySummary).sort();
+
+        categories.forEach(cat => {
+            let qty = categorySummary[cat].totalQty;
+            let sales = categorySummary[cat].totalSales;
+            sumCatQty += qty;
+            sumCatSales += sales;
+
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${cat}</td>
+                <td class="number">${qty.toLocaleString('th-TH')}</td>
+                <td class="number">${sales.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+            `;
+            catTbody.appendChild(tr);
+        });
+        
+        document.getElementById('catTotalQty').innerText = sumCatQty.toLocaleString('th-TH');
+        document.getElementById('catTotalSales').innerText = sumCatSales.toLocaleString('th-TH', {minimumFractionDigits: 2});
+
+        let fragTbody = document.querySelector('#fragranceTable tbody');
+        fragTbody.innerHTML = '';
+        const sizes = ['10 ML', '50 ML', 'SET'];
+        let sumFragQty = 0;
+
+        sizes.forEach(size => {
+            let qty = fineFragrancesSummary[size];
+            sumFragQty += qty;
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${size}</td>
+                <td class="number">${qty.toLocaleString('th-TH')}</td>
+            `;
+            fragTbody.appendChild(tr);
+        });
+        document.getElementById('fragTotalQty').innerText = sumFragQty.toLocaleString('th-TH');
+
+        createFilterButtons(categories);
+        renderDataTable(globalExtractedData);
+    }
+
+    function createFilterButtons(categories) {
+        const filterContainer = document.getElementById('filterButtons');
+        filterContainer.innerHTML = '';
+
+        // 1. ปุ่ม ALL
+        const btnAll = document.createElement('button');
+        btnAll.className = 'filter-btn active';
+        btnAll.innerText = 'ALL CATEGORIES';
+        btnAll.onclick = () => applyFilter('ALL', btnAll);
+        filterContainer.appendChild(btnAll);
+
+        // 2. ปุ่ม Category ปกติ
+        categories.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = 'filter-btn';
+            btn.innerText = cat;
+            btn.onclick = () => applyFilter(cat, btn);
+            filterContainer.appendChild(btn);
+        });
+
+        // ตรวจสอบว่ามีหมวด Fine Fragrances หรือไม่
+        if (categories.includes('Fine Fragrances')) {
+            // เส้นคั่นเพื่อให้ดูแยกกลุ่ม
+            const divider = document.createElement('div');
+            divider.className = 'filter-divider';
+            filterContainer.appendChild(divider);
+
+            // 3. ปุ่มพิเศษสำหรับ Fine Fragrances (สีทอง)
+            const ffSizes = ['10 ML', '50 ML', 'SET'];
+            ffSizes.forEach(size => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn ff-btn'; // ใส่คลาส ff-btn สำหรับสีทอง
+                btn.innerHTML = `<span style="font-weight:700;">FF:</span> ${size}`;
+                btn.onclick = () => applyFilter(`FF-${size}`, btn);
+                filterContainer.appendChild(btn);
+            });
+        }
+    }
+
+    function applyFilter(filterType, clickedBtn) {
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        clickedBtn.classList.add('active');
+
+        let filteredData = globalExtractedData;
+
+        if (filterType !== 'ALL') {
+            if (filterType.startsWith('FF-')) {
+                // Filter เฉพาะ Size ของ Fine Fragrances
+                let targetSize = filterType.replace('FF-', '');
+                filteredData = globalExtractedData.filter(item => item.ffSize === targetSize);
+            } else {
+                // Filter ตาม Category ปกติ
+                filteredData = globalExtractedData.filter(item => {
+                    let cat = item.category || 'ไม่ระบุ Category';
+                    return cat === filterType;
+                });
+            }
+        }
+
+        renderDataTable(filteredData);
+    }
+
+    function renderDataTable(dataArray) {
+        let dataTbody = document.querySelector('#dataTable tbody');
+        dataTbody.innerHTML = '';
+        dataArray.forEach(item => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.date}</td>
+                <td>${item.sku}</td>
+                <td>${item.variantName}</td>
+                <td class="number">${item.priceSale.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                <td>${item.category}</td>
+                <td class="number">${item.quantity.toLocaleString('th-TH')}</td>
+            `;
+            dataTbody.appendChild(tr);
+        });
+    }
+</script>
+
+</body>
+</html>
