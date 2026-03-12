@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>PAÑPURI Sales Intelligence</title>
+    <title>PAÑPURI Sales & Inventory</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -13,9 +13,10 @@
         .panpuri-gold { color: #A68966; }
         .bg-panpuri-gold { background-color: #A68966; }
         .tab-active { border-bottom: 2px solid #A68966; color: #A68966; font-weight: 600; }
-        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); border: 1px solid #efefef; }
-        tr:nth-child(even) { background-color: #fafafa; }
-        .sticky-header { position: sticky; top: 0; background: white; z-index: 10; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #efefef; }
+        .btn-black { background: #000; color: #fff; transition: all 0.3s; }
+        .btn-black:hover { background: #333; transform: translateY(-1px); }
+        .status-badge { padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: bold; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -26,18 +27,20 @@
             <p class="text-[10px] tracking-[0.3em] font-bold text-gray-400 uppercase">Executive Sales & Inventory Portal</p>
         </div>
         
-        <div class="flex items-center gap-4 bg-white p-3 rounded-lg border shadow-sm no-capture">
+        <div class="flex flex-wrap items-center gap-4 bg-white p-3 rounded-lg border shadow-sm no-capture">
+            <div id="loadingStatus" class="hidden"><span class="animate-pulse text-xs text-orange-500 font-bold uppercase">Processing...</span></div>
             <div class="border-r pr-4">
-                <input type="date" id="datePicker" value="2026-02-14" class="text-sm font-semibold outline-none bg-transparent">
+                <input type="date" id="datePicker" value="2026-02-14" class="text-sm font-semibold outline-none bg-transparent cursor-pointer">
             </div>
-            <label for="csvFiles" class="text-xs font-bold uppercase tracking-widest cursor-pointer hover:text-[#A68966] transition">Upload CSV</label>
+            <label for="csvFiles" class="btn-black px-6 py-2 rounded text-[10px] font-bold uppercase tracking-widest cursor-pointer text-center">
+                Select CSV Files
+            </label>
             <input type="file" id="csvFiles" multiple accept=".csv" class="hidden">
-            <button onclick="copyImage()" class="bg-black text-white px-6 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-gray-800 transition">Copy Report</button>
+            <button onclick="copyImage()" class="border border-black px-6 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-gray-50 transition">Copy Report</button>
         </div>
     </div>
 
     <div class="max-w-7xl mx-auto">
-        
         <div class="flex gap-8 mb-6 border-b border-gray-100 no-capture">
             <button onclick="switchTab('raw')" id="tab-raw" class="tab-active pb-3 text-xs uppercase tracking-widest transition">Sales Raw Data</button>
             <button onclick="switchTab('summary')" id="tab-summary" class="pb-3 text-xs uppercase tracking-widest text-gray-400 hover:text-black transition">Picking Summary (เบิกสินค้า)</button>
@@ -46,35 +49,33 @@
         <div id="view-raw" class="card overflow-hidden">
             <div class="overflow-x-auto max-h-[600px]">
                 <table class="w-full text-[11px] text-left">
-                    <thead class="sticky-header shadow-sm text-gray-400 uppercase tracking-tighter">
+                    <thead class="sticky top-0 bg-white shadow-sm text-gray-400 uppercase tracking-tighter z-10">
                         <tr>
                             <th class="p-4">Time</th>
                             <th class="p-4">Shop</th>
                             <th class="p-4">Mat Code</th>
                             <th class="p-4">Description</th>
-                            <th class="p-4 text-right">Qty</th>
+                            <th class="p-4 text-center">Qty</th>
                             <th class="p-4 text-right">Net Sale</th>
                         </tr>
                     </thead>
                     <tbody id="rawTableBody" class="text-gray-600">
-                        <tr><td colspan="6" class="p-10 text-center italic text-gray-300 uppercase tracking-widest">Please upload CSV files to view data</td></tr>
+                        <tr><td colspan="6" class="p-20 text-center italic text-gray-300 uppercase tracking-widest">No data. Click "Select CSV Files" to start.</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <div id="view-summary" class="hidden space-y-6">
-            <div id="summaryContainer">
-                </div>
+            <div id="summaryContainer"></div>
         </div>
-
     </div>
 
     <script>
         let allRawData = [];
         let productMaster = {};
 
-        // Load Master Data from Google Sheets
+        // โหลดข้อมูล Master ทันทีเมื่อเปิดหน้า
         window.onload = function() {
             google.script.run.withSuccessHandler(function(data) {
                 if(!data) return;
@@ -86,48 +87,61 @@
                         brand: String(row[7]).trim().toUpperCase()
                     };
                 });
+                console.log("Master data synced:", Object.keys(productMaster).length);
             }).getSheetData();
         };
 
-        document.getElementById('csvFiles').addEventListener('change', async (e) => {
+        // ตรวจจับการเลือกไฟล์
+        document.getElementById('csvFiles').addEventListener('change', function(e) {
             const files = Array.from(e.target.files);
-            allRawData = [];
-            for (const file of files) {
-                const day = parseInt(file.name.substring(0, 2));
-                await new Promise(resolve => {
-                    Papa.parse(file, {
-                        header: true,
-                        skipEmptyLines: true,
-                        complete: function(results) {
-                            processCSV(results.data, day);
-                            resolve();
-                        }
-                    });
-                });
-            }
-            renderViews();
-        });
+            if (files.length === 0) return;
+            
+            document.getElementById('loadingStatus').classList.remove('hidden');
+            allRawData = []; // Clear data เก่า
 
-        document.getElementById('datePicker').addEventListener('change', renderViews);
+            let processedCount = 0;
+            files.forEach(file => {
+                const day = parseInt(file.name.substring(0, 2)) || 14;
+                Papa.parse(file, {
+                    header: true,
+                    dynamicTyping: false,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        processCSV(results.data, day);
+                        processedCount++;
+                        if (processedCount === files.length) {
+                            renderViews();
+                            document.getElementById('loadingStatus').classList.add('hidden');
+                        }
+                    }
+                });
+            });
+        });
 
         function processCSV(rows, day) {
             rows.forEach(row => {
-                const matCodeRaw = row['MAT.CODE'];
-                if (!matCodeRaw || row['SHOP NAME'].includes('TOTAL')) return;
+                // ตรวจสอบคอลัมน์ MAT.CODE (ใช้ชื่อตามที่เห็นในไฟล์ของคุณ)
+                let matCodeRaw = row['MAT.CODE'] || row['MAT CODE'] || row['Mat.Code'];
+                let shopName = row['SHOP NAME'] || row['Shop Name'] || "";
+                
+                if (!matCodeRaw || shopName.includes('TOTAL')) return;
 
                 const cleanCode = String(matCodeRaw).trim().split('.')[0];
                 const master = productMaster[cleanCode];
                 
                 // กรองเฉพาะแบรนด์ PANPURI
-                if (master && master.brand === 'PANPURI') {
+                if (master && master.brand.includes('PANPURI')) {
+                    let qty = parseInt(String(row['QUANTITY'] || 0).replace(/,/g, ''));
+                    let netsale = parseFloat(String(row['NETSALE'] || 0).replace(/,/g, '').replace(/"/g, ''));
+                    
                     allRawData.push({
                         day: day,
-                        shop: row['SHOP NAME'].split(' ')[0], // ตัดชื่อย่อ TE1, TE3...
-                        time: row['DATE TIME'].split(' ')[1] || '00:00',
+                        shop: shopName.includes('TE1') ? 'TE1' : (shopName.includes('TE3') ? 'TE3' : 'TW4'),
+                        time: (row['DATE TIME'] || "").split(' ')[1] || '00:00',
                         code: cleanCode,
-                        desc: row['DESCRIPTION'],
-                        qty: parseInt(row['QUANTITY'] || 0),
-                        sale: parseFloat(String(row['NETSALE']).replace(/,/g,'')),
+                        desc: row['DESCRIPTION'] || "",
+                        qty: qty,
+                        sale: netsale,
                         section: master.section
                     });
                 }
@@ -137,58 +151,61 @@
         function switchTab(type) {
             document.getElementById('view-raw').classList.toggle('hidden', type !== 'raw');
             document.getElementById('view-summary').classList.toggle('hidden', type !== 'summary');
-            document.getElementById('tab-raw').className = type === 'raw' ? 'tab-active pb-3 text-xs uppercase tracking-widest transition' : 'pb-3 text-xs uppercase tracking-widest text-gray-400 transition';
-            document.getElementById('tab-summary').className = type === 'summary' ? 'tab-active pb-3 text-xs uppercase tracking-widest transition' : 'pb-3 text-xs uppercase tracking-widest text-gray-400 transition';
+            document.getElementById('tab-raw').className = (type === 'raw' ? 'tab-active' : 'text-gray-400') + ' pb-3 text-xs uppercase tracking-widest transition';
+            document.getElementById('tab-summary').className = (type === 'summary' ? 'tab-active' : 'text-gray-400') + ' pb-3 text-xs uppercase tracking-widest transition';
         }
 
         function renderViews() {
-            const selectedDay = parseInt(document.getElementById('datePicker').value.split('-')[2]);
+            const dateInput = document.getElementById('datePicker').value;
+            const selectedDay = parseInt(dateInput.split('-')[2]);
             const filteredData = allRawData.filter(d => d.day === selectedDay);
             
-            // 1. Render Raw Table
+            // 1. Raw Table
             const rawBody = document.getElementById('rawTableBody');
-            rawBody.innerHTML = filteredData.map(d => `
-                <tr class="border-b border-gray-50">
-                    <td class="p-4 text-gray-400">${d.time}</td>
-                    <td class="p-4 font-bold text-black">${d.shop}</td>
-                    <td class="p-4">${d.code}</td>
-                    <td class="p-4 uppercase">${d.desc}</td>
-                    <td class="p-4 text-right font-bold">${d.qty}</td>
-                    <td class="p-4 text-right">฿${d.sale.toLocaleString()}</td>
-                </tr>
-            `).join('') || '<tr><td colspan="6" class="p-20 text-center text-gray-300">No data for selected date</td></tr>';
+            if (filteredData.length === 0) {
+                rawBody.innerHTML = '<tr><td colspan="6" class="p-20 text-center text-gray-300 uppercase tracking-widest">No PANPURI data found for this date</td></tr>';
+            } else {
+                rawBody.innerHTML = filteredData.map(d => `
+                    <tr class="border-b border-gray-50 hover:bg-gray-50">
+                        <td class="p-4 text-gray-400">${d.time}</td>
+                        <td class="p-4 font-bold">${d.shop}</td>
+                        <td class="p-4">${d.code}</td>
+                        <td class="p-4 uppercase text-[10px] font-semibold">${d.desc}</td>
+                        <td class="p-4 text-center font-bold text-black">${d.qty}</td>
+                        <td class="p-4 text-right">฿${d.sale.toLocaleString()}</td>
+                    </tr>
+                `).join('');
+            }
 
-            // 2. Render Picking Summary (Grouped by Section and Code)
+            // 2. Picking Summary
             const summaryContainer = document.getElementById('summaryContainer');
             const grouped = {};
-
             filteredData.forEach(d => {
                 if (!grouped[d.section]) grouped[d.section] = {};
-                if (!grouped[d.section][d.code]) {
-                    grouped[d.section][d.code] = { desc: d.desc, qty: 0 };
-                }
+                if (!grouped[d.section][d.code]) grouped[d.section][d.code] = { desc: d.desc, qty: 0 };
                 grouped[d.section][d.code].qty += d.qty;
             });
 
             summaryContainer.innerHTML = Object.keys(grouped).sort().map(section => `
-                <div class="card mb-8 overflow-hidden">
-                    <div class="bg-black p-4">
-                        <h4 class="text-white text-[10px] font-bold uppercase tracking-[0.2em]">${section}</h4>
+                <div class="card mb-6 overflow-hidden">
+                    <div class="bg-black p-3 flex justify-between items-center">
+                        <h4 class="text-white text-[10px] font-bold uppercase tracking-widest">${section}</h4>
+                        <span class="status-badge bg-[#A68966] text-white">READY TO PICK</span>
                     </div>
                     <table class="w-full text-[11px] text-left">
                         <thead>
-                            <tr class="text-gray-400 border-b uppercase">
-                                <th class="p-4 w-32">Mat Code</th>
+                            <tr class="text-gray-400 border-b uppercase text-[9px]">
+                                <th class="p-4">Mat Code</th>
                                 <th class="p-4">Item Description</th>
-                                <th class="p-4 text-center w-32 bg-gray-50 font-bold text-black">Total Qty</th>
+                                <th class="p-4 text-center bg-gray-50 text-black">Total Qty</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${Object.keys(grouped[section]).map(code => `
                                 <tr class="border-b border-gray-50">
-                                    <td class="p-4 font-mono">${code}</td>
-                                    <td class="p-4 uppercase font-semibold">${grouped[section][code].desc}</td>
-                                    <td class="p-4 text-center bg-gray-50 text-lg font-bold text-[#A68966]">${grouped[section][code].qty}</td>
+                                    <td class="p-4 font-mono text-gray-500">${code}</td>
+                                    <td class="p-4 uppercase font-semibold text-black text-[10px]">${grouped[section][code].desc}</td>
+                                    <td class="p-4 text-center bg-gray-50 text-base font-bold text-[#A68966]">${grouped[section][code].qty}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -198,13 +215,13 @@
         }
 
         function copyImage() {
-            const noCapture = document.querySelectorAll('.no-capture');
-            noCapture.forEach(el => el.style.display = 'none');
+            const elements = document.querySelectorAll('.no-capture');
+            elements.forEach(el => el.style.visibility = 'hidden');
             html2canvas(document.body, { backgroundColor: '#FBFBFA', scale: 2 }).then(canvas => {
                 canvas.toBlob(blob => {
                     navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(() => {
-                        alert("Report copied to clipboard! Ready to paste in LINE.");
-                        noCapture.forEach(el => el.style.display = 'flex');
+                        alert("Report copied to clipboard!");
+                        elements.forEach(el => el.style.visibility = 'visible');
                     });
                 });
             });
