@@ -730,10 +730,10 @@
             </tr>
         `;
 
-        // Logic Grouping by SKU
+        // 1. Logic Grouping ข้อมูลด้วย SKU
         const pickingGroup = {};
         data.forEach(item => {
-            const key = item.sku;
+            const key = item.sku; // ใช้ SKU เป็น Key หลัก
             if (!pickingGroup[key]) {
                 pickingGroup[key] = {
                     sku: item.sku,
@@ -748,14 +748,18 @@
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = '';
         
-        // เรียงลำดับตามชื่อสินค้า
-        const sortedPicking = Object.values(pickingGroup).sort((a,b) => a.name.localeCompare(b.name));
+        // 2. เพิ่มการ SORT ข้อมูลตาม SKU (จากน้อยไปมาก)
+        const sortedPicking = Object.values(pickingGroup).sort((a, b) => {
+            // ใช้ localeCompare เพื่อรองรับทั้งตัวเลขและตัวอักษรใน SKU
+            return String(a.sku).localeCompare(String(b.sku), undefined, {numeric: true, sensitivity: 'base'});
+        });
 
+        // 3. แสดงผลลงในตาราง
         sortedPicking.forEach(item => {
             let tr = document.createElement('tr');
             tr.className = 'picking-row';
             tr.innerHTML = `
-                <td style="color:#666; font-size:12px;">${item.sku}</td>
+                <td style="color:#1a1a1a; font-weight:600; font-family:monospace;">${item.sku}</td>
                 <td style="font-size:14px;">${item.name}</td>
                 <td style="color:#888;">${item.cat}</td>
                 <td class="number">
@@ -766,10 +770,11 @@
         });
 
         if (sortedPicking.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:50px; color:#ccc;">ไม่มีข้อมูลสินค้าในหมวดหมู่นี้</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:50px; color:#ccc;">ไม่มีข้อมูลสินค้า</td></tr>';
         }
     }
 </script>
 
 </body>
 </html>
+
