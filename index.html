@@ -730,10 +730,10 @@
             </tr>
         `;
 
-        // 1. Logic Grouping ข้อมูลด้วย SKU
+        // 1. Grouping ข้อมูลด้วย SKU ตามปกติ
         const pickingGroup = {};
         data.forEach(item => {
-            const key = item.sku; // ใช้ SKU เป็น Key หลัก
+            const key = item.sku;
             if (!pickingGroup[key]) {
                 pickingGroup[key] = {
                     sku: item.sku,
@@ -748,18 +748,33 @@
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = '';
         
-        // 2. เพิ่มการ SORT ข้อมูลตาม SKU (จากน้อยไปมาก)
+        // 2. ปรับ Logic การ Sort ใหม่: เรียงตามกลุ่มตัวอักษร 3 ตัวแรกก่อน แล้วตามด้วยตัวเลข
         const sortedPicking = Object.values(pickingGroup).sort((a, b) => {
-            // ใช้ localeCompare เพื่อรองรับทั้งตัวเลขและตัวอักษรใน SKU
-            return String(a.sku).localeCompare(String(b.sku), undefined, {numeric: true, sensitivity: 'base'});
+            const skuA = String(a.sku);
+            const skuB = String(b.sku);
+            
+            // แยกอักษร 3 ตัวแรก (เช่น PFC, PPR, DNA)
+            const prefixA = skuA.substring(0, 3);
+            const prefixB = skuB.substring(0, 3);
+            
+            if (prefixA < prefixB) return -1;
+            if (prefixA > prefixB) return 1;
+            
+            // ถ้า Prefix 3 ตัวแรกเหมือนกัน (เช่น PFC เหมือนกัน) ให้เรียงตามตัวเลขที่เหลือ
+            // ใช้ numeric: true เพื่อให้เลข 2 มาก่อนเลข 10 (Natural Sort)
+            return skuA.localeCompare(skuB, undefined, { numeric: true, sensitivity: 'base' });
         });
 
         // 3. แสดงผลลงในตาราง
         sortedPicking.forEach(item => {
             let tr = document.createElement('tr');
             tr.className = 'picking-row';
+            
+            // ตกแต่งส่วน SKU ให้เห็น Prefix ชัดเจนขึ้น (ใส่สีจางๆ ให้ตัวอักษร 3 ตัวแรก)
+            const skuDisplay = `<b>${item.sku.substring(0, 3)}</b>${item.sku.substring(3)}`;
+            
             tr.innerHTML = `
-                <td style="color:#1a1a1a; font-weight:600; font-family:monospace;">${item.sku}</td>
+                <td style="color:#1a1a1a; font-family:monospace; font-size:13px;">${skuDisplay}</td>
                 <td style="font-size:14px;">${item.name}</td>
                 <td style="color:#888;">${item.cat}</td>
                 <td class="number">
@@ -777,4 +792,5 @@
 
 </body>
 </html>
+
 
