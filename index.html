@@ -255,7 +255,7 @@
 
         /* Filter Buttons */
         .filter-container {
-            margin: 20px 0 25px 0;
+            margin: 20px 0 10px 0;
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
@@ -267,7 +267,7 @@
             color: #666;
             padding: 10px 20px;
             font-family: 'Montserrat', sans-serif;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -310,7 +310,47 @@
             margin: 0 5px;
         }
 
+        /* --- Tab System --- */
+        .view-tabs {
+            margin: 30px 0 15px 0;
+            display: flex;
+            gap: 5px;
+            border-bottom: 2px solid var(--brand-border);
+            padding-bottom: 0;
+        }
+        .view-tab {
+            padding: 12px 25px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #999;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+        }
+        .view-tab.active {
+            color: var(--brand-red);
+            border-bottom: 3px solid var(--brand-red);
+        }
+        .view-tab:hover:not(.active) {
+            color: var(--brand-black);
+        }
+
         .hidden { display: none !important; }
+
+        /* Highlight Picking Row */
+        .picking-row td {
+            font-weight: 600;
+        }
+        .picking-row .qty-badge {
+            background: var(--brand-black);
+            color: var(--brand-white);
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 15px;
+        }
     </style>
 </head>
 <body>
@@ -402,23 +442,19 @@
             </div>
         </div>
 
-        <h3 style="margin-bottom: 5px;">ข้อมูลรายการขาย (Raw Data)</h3>
+        <div class="view-tabs" id="viewTabs">
+            <div class="view-tab active" id="tabRaw" onclick="switchView('RAW')">ข้อมูลรายการขาย (RAW DATA)</div>
+            <div class="view-tab" id="tabPicking" onclick="switchView('PICKING')">สรุปรายการเบิกสินค้า (PICKING)</div>
+        </div>
+
         <div class="filter-container" id="filterButtons">
         </div>
 
         <div class="data-table-container">
             <table id="dataTable">
-                <thead>
-                    <tr>
-                        <th>วันที่ (Date)</th>
-                        <th>SKU</th>
-                        <th>Variant Name</th>
-                        <th class="number">Price Sale</th>
-                        <th>Category</th>
-                        <th class="number">Quantity</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
+                <thead id="tableHeader">
+                    </thead>
+                <tbody id="tableBody"></tbody>
             </table>
         </div>
 
@@ -427,6 +463,8 @@
 
 <script>
     let globalExtractedData = [];
+    let currentCategoryFilter = 'ALL';
+    let currentView = 'RAW'; // 'RAW' or 'PICKING'
 
     document.getElementById('fileUpload').addEventListener('change', function(e) {
         var file = e.target.files[0];
@@ -457,8 +495,6 @@
                 alert('เกิดข้อผิดพลาดในการอ่านไฟล์ กรุณาลองใหม่อีกครั้ง');
                 loader.classList.remove('active');
             }
-            
-            // ล้างค่า input เพื่อให้สามารถอัปโหลดไฟล์เดิมซ้ำได้ถ้าต้องการ
             e.target.value = '';
         };
         reader.readAsArrayBuffer(file);
@@ -528,9 +564,6 @@
     }
 
     function renderDashboard(salesDate, salesBranch, categorySummary, fineFragrancesSummary) {
-        if (typeof categorySummary !== 'object' || categorySummary === null) categorySummary = {};
-        if (typeof fineFragrancesSummary !== 'object' || fineFragrancesSummary === null) fineFragrancesSummary = {};
-
         document.getElementById('salesDateValue').innerText = salesDate || 'ไม่พบข้อมูลวันที่';
         document.getElementById('salesBranchValue').innerText = salesBranch || 'ไม่ระบุสาขา';
 
@@ -541,8 +574,8 @@
         let categories = Object.keys(categorySummary).sort();
 
         categories.forEach(cat => {
-            let qty = (categorySummary[cat] && categorySummary[cat].totalQty) ? categorySummary[cat].totalQty : 0;
-            let sales = (categorySummary[cat] && categorySummary[cat].totalSales) ? categorySummary[cat].totalSales : 0;
+            let qty = categorySummary[cat].totalQty;
+            let sales = categorySummary[cat].totalSales;
             sumCatQty += qty;
             sumCatSales += sales;
 
@@ -576,7 +609,7 @@
         document.getElementById('fragTotalQty').innerText = Number(sumFragQty).toLocaleString('th-TH');
 
         createFilterButtons(categories);
-        renderDataTable(globalExtractedData);
+        refreshMainTable();
     }
 
     function createFilterButtons(categories) {
@@ -586,14 +619,22 @@
         const btnAll = document.createElement('button');
         btnAll.className = 'filter-btn active';
         btnAll.innerText = 'ALL CATEGORIES';
-        btnAll.onclick = () => applyFilter('ALL', btnAll);
+        btnAll.onclick = () => {
+            currentCategoryFilter = 'ALL';
+            updateActiveFilterBtn(btnAll);
+            refreshMainTable();
+        };
         filterContainer.appendChild(btnAll);
 
         categories.forEach(cat => {
             const btn = document.createElement('button');
             btn.className = 'filter-btn';
             btn.innerText = cat;
-            btn.onclick = () => applyFilter(cat, btn);
+            btn.onclick = () => {
+                currentCategoryFilter = cat;
+                updateActiveFilterBtn(btn);
+                refreshMainTable();
+            };
             filterContainer.appendChild(btn);
         });
 
@@ -607,50 +648,126 @@
                 const btn = document.createElement('button');
                 btn.className = 'filter-btn ff-btn';
                 btn.innerHTML = `<span style="font-weight:700;">FF:</span> ${size}`;
-                btn.onclick = () => applyFilter(`FF-${size}`, btn);
+                btn.onclick = () => {
+                    currentCategoryFilter = `FF-${size}`;
+                    updateActiveFilterBtn(btn);
+                    refreshMainTable();
+                };
                 filterContainer.appendChild(btn);
             });
         }
     }
 
-    function applyFilter(filterType, clickedBtn) {
+    function updateActiveFilterBtn(clickedBtn) {
         document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
         clickedBtn.classList.add('active');
+    }
 
-        let filteredData = globalExtractedData;
+    function switchView(view) {
+        currentView = view;
+        document.getElementById('tabRaw').classList.toggle('active', view === 'RAW');
+        document.getElementById('tabPicking').classList.toggle('active', view === 'PICKING');
+        refreshMainTable();
+    }
 
-        if (filterType !== 'ALL') {
-            if (filterType.startsWith('FF-')) {
-                let targetSize = filterType.replace('FF-', '');
-                filteredData = globalExtractedData.filter(item => item.ffSize === targetSize);
+    function refreshMainTable() {
+        // 1. กรองข้อมูลตาม Category ก่อน
+        let filtered = globalExtractedData;
+        if (currentCategoryFilter !== 'ALL') {
+            if (currentCategoryFilter.startsWith('FF-')) {
+                let targetSize = currentCategoryFilter.replace('FF-', '');
+                filtered = globalExtractedData.filter(item => item.ffSize === targetSize);
             } else {
-                filteredData = globalExtractedData.filter(item => {
-                    let cat = item.category || 'ไม่ระบุ Category';
-                    return cat === filterType;
-                });
+                filtered = globalExtractedData.filter(item => (item.category || 'ไม่ระบุ Category') === currentCategoryFilter);
             }
         }
 
-        renderDataTable(filteredData);
+        // 2. แสดงผลตาม View ที่เลือก
+        if (currentView === 'RAW') {
+            renderRawTable(filtered);
+        } else {
+            renderPickingTable(filtered);
+        }
     }
 
-    function renderDataTable(dataArray) {
-        let dataTbody = document.querySelector('#dataTable tbody');
-        dataTbody.innerHTML = '';
-        dataArray.forEach(item => {
+    function renderRawTable(data) {
+        const header = document.getElementById('tableHeader');
+        header.innerHTML = `
+            <tr>
+                <th>วันที่ (Date)</th>
+                <th>SKU</th>
+                <th>Variant Name</th>
+                <th class="number">Price Sale</th>
+                <th>Category</th>
+                <th class="number">Quantity</th>
+            </tr>
+        `;
+
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        data.forEach(item => {
             let tr = document.createElement('tr');
-            let price = Number(item.priceSale) || 0;
-            let qty = Number(item.quantity) || 0;
             tr.innerHTML = `
                 <td>${item.date}</td>
                 <td>${item.sku}</td>
                 <td>${item.variantName}</td>
-                <td class="number">${price.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                <td class="number">${item.priceSale.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
                 <td>${item.category}</td>
-                <td class="number">${qty.toLocaleString('th-TH')}</td>
+                <td class="number">${item.quantity.toLocaleString('th-TH')}</td>
             `;
-            dataTbody.appendChild(tr);
+            tbody.appendChild(tr);
         });
+    }
+
+    function renderPickingTable(data) {
+        const header = document.getElementById('tableHeader');
+        header.innerHTML = `
+            <tr>
+                <th>SKU</th>
+                <th>Variant Name</th>
+                <th>Category</th>
+                <th class="number">จำนวนรวมที่ต้องเบิก (Total Qty)</th>
+            </tr>
+        `;
+
+        // Logic Grouping by SKU
+        const pickingGroup = {};
+        data.forEach(item => {
+            const key = item.sku;
+            if (!pickingGroup[key]) {
+                pickingGroup[key] = {
+                    sku: item.sku,
+                    name: item.variantName,
+                    cat: item.category,
+                    totalQty: 0
+                };
+            }
+            pickingGroup[key].totalQty += item.quantity;
+        });
+
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        
+        // เรียงลำดับตามชื่อสินค้า
+        const sortedPicking = Object.values(pickingGroup).sort((a,b) => a.name.localeCompare(b.name));
+
+        sortedPicking.forEach(item => {
+            let tr = document.createElement('tr');
+            tr.className = 'picking-row';
+            tr.innerHTML = `
+                <td style="color:#666; font-size:12px;">${item.sku}</td>
+                <td style="font-size:14px;">${item.name}</td>
+                <td style="color:#888;">${item.cat}</td>
+                <td class="number">
+                    <span class="qty-badge">${item.totalQty.toLocaleString('th-TH')}</span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (sortedPicking.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:50px; color:#ccc;">ไม่มีข้อมูลสินค้าในหมวดหมู่นี้</td></tr>';
+        }
     }
 </script>
 
