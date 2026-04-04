@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PAÑPURI Sales Dashboard (New Format)</title>
+    <title>PAÑPURI Sales Dashboard (Category Filter)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
@@ -18,43 +18,19 @@
             --brand-red: #9e1b1e;
         }
 
-        body {
-            font-family: 'Montserrat', sans-serif;
-            margin: 0;
-            background-color: var(--brand-bg);
-            color: var(--brand-black);
-        }
-
-        h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
-
-        .navbar {
-            background-color: var(--brand-white);
-            padding: 15px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--brand-border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
+        body { font-family: 'Montserrat', sans-serif; margin: 0; background-color: var(--brand-bg); color: var(--brand-black); }
+        .navbar { background-color: var(--brand-white); padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--brand-border); position: sticky; top: 0; z-index: 100; }
         .logo { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; letter-spacing: 2px; color: var(--brand-red); text-transform: uppercase; margin: 0; }
-
-        .upload-btn {
-            background-color: var(--brand-red);
-            color: var(--brand-white);
-            border: none;
-            padding: 10px 25px;
-            border-radius: 50px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+        .upload-btn { background-color: var(--brand-red); color: var(--brand-white); border: none; padding: 10px 25px; border-radius: 50px; font-size: 12px; font-weight: 600; cursor: pointer; text-transform: uppercase; }
 
         .container { max-width: 1400px; margin: 30px auto; padding: 0 20px; }
+
+        /* Filter Section */
+        .filter-section { margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .filter-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-right: 10px; }
+        .cat-btn { background: white; border: 1px solid var(--brand-border); padding: 8px 18px; border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.3s; color: #666; text-transform: uppercase; }
+        .cat-btn:hover { border-color: var(--brand-red); color: var(--brand-red); }
+        .cat-btn.active { background: var(--brand-red); color: white; border-color: var(--brand-red); box-shadow: 0 4px 10px rgba(158, 27, 30, 0.2); }
 
         /* Tabs */
         .view-tabs { display: flex; gap: 5px; border-bottom: 2px solid var(--brand-border); margin-bottom: 20px; }
@@ -65,42 +41,38 @@
         .data-table-container { background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--brand-border); max-height: 700px; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--brand-border); }
-        th { position: sticky; top: 0; background: white; color: #666; font-size: 11px; text-transform: uppercase; }
+        th { position: sticky; top: 0; background: white; color: #666; font-size: 11px; text-transform: uppercase; z-index: 5; }
         
-        /* Picking Styles */
-        .picking-row td { font-weight: 500; }
         .qty-badge { background: var(--brand-black); color: white; padding: 5px 12px; border-radius: 4px; font-size: 16px; font-weight: 700; }
-        .sku-prefix { color: var(--brand-red); font-weight: 700; }
-
+        .sku-prefix { color: var(--brand-red); font-weight: 700; font-family: monospace; }
+        .number { text-align: right; }
         .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 999; display: none; flex-direction: column; justify-content: center; align-items: center; }
         .loader-overlay.active { display: flex; }
         .spinner { width: 50px; height: 50px; border: 4px solid #eee; border-top-color: var(--brand-red); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
-        
-        .hidden { display: none !important; }
-        .number { text-align: right; }
     </style>
 </head>
 <body>
 
 <div class="loader-overlay" id="loaderOverlay">
     <div class="spinner"></div>
-    <p style="margin-top:15px; font-weight:600;">กำลังประมวลผลข้อมูลรูปแบบใหม่...</p>
+    <p style="margin-top:15px; font-weight:600;">กำลังจัดเตรียมข้อมูลแยกตาม Category...</p>
 </div>
 
 <div class="navbar">
-    <div class="logo-section">
-        <h1 class="logo">PAÑPURI</h1>
-    </div>
-    <button class="upload-btn" onclick="document.getElementById('fileUpload').click()">นำเข้าไฟล์ CSV ใหม่</button>
+    <h1 class="logo">PAÑPURI</h1>
+    <button class="upload-btn" onclick="document.getElementById('fileUpload').click()">นำเข้าไฟล์ CSV</button>
     <input type="file" id="fileUpload" accept=".csv, .xlsx" style="display: none;" />
 </div>
 
 <div class="container">
+    <div class="filter-section" id="categoryFilters">
+        </div>
+
     <div id="dashboardContent">
         <div class="view-tabs">
             <div class="view-tab active" id="tabRaw" onclick="switchView('RAW')">รายการขาย (RAW DATA)</div>
-            <div class="view-tab" id="tabPicking" onclick="switchView('PICKING')">สรุปใบเบิกสินค้า (SORT BY SKU)</div>
+            <div class="view-tab" id="tabPicking" onclick="switchView('PICKING')">สรุปใบเบิก (SORT SKU)</div>
         </div>
 
         <div class="data-table-container">
@@ -115,11 +87,11 @@
 <script>
     let globalData = [];
     let currentView = 'RAW';
+    let currentCategory = 'ALL';
 
     document.getElementById('fileUpload').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
-
         document.getElementById('loaderOverlay').classList.add('active');
         
         const reader = new FileReader();
@@ -129,36 +101,51 @@
             const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
             
             processNewFormat(rows);
+            generateCategoryButtons();
             
             setTimeout(() => {
                 document.getElementById('loaderOverlay').classList.remove('active');
                 refreshTable();
-            }, 1500);
+            }, 1000);
         };
         reader.readAsArrayBuffer(file);
     });
 
     function processNewFormat(rows) {
         globalData = [];
-        // เริ่มที่ i=2 เพราะไฟล์ใหม่มักมีแถว Summary และ Header
         for (let i = 2; i < rows.length; i++) {
             let row = rows[i];
-            if (!row || row.length < 15) continue;
-
-            // Mapping ตามตำแหน่งที่คุณระบุ: C=2, M=12, N=13, S=18, T=19, U=20
-            let sku = row[12] ? String(row[12]).trim() : '';
-            if (!sku || sku === "SKU") continue;
+            if (!row || !row[12]) continue; // Skip if no SKU
 
             globalData.push({
                 date: row[2] ? String(row[2]).trim() : '',
-                sku: sku,
+                sku: String(row[12]).trim(),
                 name: row[13] ? String(row[13]).trim() : '',
                 qty: parseFloat(row[18]) || 0,
                 price: parseFloat(row[19]) || 0,
                 total: parseFloat(row[20]) || 0,
-                category: row[15] ? String(row[15]).trim() : 'General'
+                category: row[15] ? String(row[15]).trim() : 'OTHER'
             });
         }
+    }
+
+    function generateCategoryButtons() {
+        const filterContainer = document.getElementById('categoryFilters');
+        const categories = ['ALL', ...new Set(globalData.map(d => d.category))].sort();
+        
+        filterContainer.innerHTML = '<span class="filter-label">Filter Category:</span>';
+        categories.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = `cat-btn ${cat === currentCategory ? 'active' : ''}`;
+            btn.innerText = cat;
+            btn.onclick = () => {
+                currentCategory = cat;
+                document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                refreshTable();
+            };
+            filterContainer.appendChild(btn);
+        });
     }
 
     function switchView(view) {
@@ -169,41 +156,40 @@
     }
 
     function refreshTable() {
-        if (currentView === 'RAW') renderRaw();
-        else renderPicking();
+        const filtered = currentCategory === 'ALL' 
+            ? globalData 
+            : globalData.filter(d => d.category === currentCategory);
+
+        if (currentView === 'RAW') renderRaw(filtered);
+        else renderPicking(filtered);
     }
 
-    function renderRaw() {
+    function renderRaw(data) {
         const header = document.getElementById('tableHeader');
-        header.innerHTML = `<tr><th>Date</th><th>SKU</th><th>Description</th><th class="number">Qty</th><th class="number">Price</th><th class="number">Total</th></tr>`;
-        
+        header.innerHTML = `<tr><th>Date</th><th>SKU</th><th>Description</th><th>Category</th><th class="number">Qty</th><th class="number">Total</th></tr>`;
         const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = globalData.map(d => `
+        tbody.innerHTML = data.map(d => `
             <tr>
                 <td>${d.date}</td>
-                <td style="font-family:monospace;">${d.sku}</td>
+                <td class="sku-prefix">${d.sku}</td>
                 <td>${d.name}</td>
+                <td><small>${d.category}</small></td>
                 <td class="number">${d.qty}</td>
-                <td class="number">${d.price.toLocaleString()}</td>
                 <td class="number">${d.total.toLocaleString()}</td>
             </tr>
         `).join('');
     }
 
-    function renderPicking() {
+    function renderPicking(data) {
         const header = document.getElementById('tableHeader');
-        header.innerHTML = `<tr><th>SKU (Sorted)</th><th>Description</th><th>Category</th><th class="number">Total Pick Qty</th></tr>`;
+        header.innerHTML = `<tr><th>SKU (Sorted)</th><th>Description</th><th>Category</th><th class="number">Pick Qty</th></tr>`;
         
-        // Grouping
         const groups = {};
-        globalData.forEach(d => {
-            if (!groups[d.sku]) {
-                groups[d.sku] = { sku: d.sku, name: d.name, cat: d.category, totalQty: 0 };
-            }
+        data.forEach(d => {
+            if (!groups[d.sku]) groups[d.sku] = { sku: d.sku, name: d.name, cat: d.category, totalQty: 0 };
             groups[d.sku].totalQty += d.qty;
         });
 
-        // Sorting Logic: อักษร 3 ตัวแรก -> ตัวเลข
         const sorted = Object.values(groups).sort((a, b) => {
             const prefA = a.sku.substring(0, 3);
             const prefB = b.sku.substring(0, 3);
@@ -213,10 +199,10 @@
 
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = sorted.map(d => `
-            <tr class="picking-row">
-                <td style="font-family:monospace;"><span class="sku-prefix">${d.sku.substring(0,3)}</span>${d.sku.substring(3)}</td>
+            <tr>
+                <td><span class="sku-prefix">${d.sku.substring(0,3)}</span>${d.sku.substring(3)}</td>
                 <td>${d.name}</td>
-                <td style="color:#888;">${d.cat}</td>
+                <td>${d.cat}</td>
                 <td class="number"><span class="qty-badge">${d.totalQty}</span></td>
             </tr>
         `).join('');
